@@ -36,6 +36,8 @@ type SensorTelemetry struct {
 	IngestedAt time.Time `json:"ingested_at"`
 }
 
+var globalTrackSmoother = NewTrackSmoother()
+
 // OnMessageReceived handles incoming MQTT messages concurrently.
 func OnMessageReceived(client mqtt.Client, msg mqtt.Message) {
 	var telemetry SensorTelemetry
@@ -45,16 +47,15 @@ func OnMessageReceived(client mqtt.Client, msg mqtt.Message) {
 	}
 
 	telemetry.IngestedAt = time.Now().UTC()
-	latencyMs := telemetry.IngestedAt.Sub(telemetry.DetectedAt).Milliseconds()
+	fusedTrack := globalTrackSmoother.ProcessMeasurement(telemetry)
 
-	fmt.Printf("[%s] Sensor: %-22s | Type: %-15s | Pos: (%.6f, %.6f) | Alt: %.1fm | Latency: %d ms\n",
-		telemetry.IngestedAt.Format("15:04:05.000"),
-		telemetry.SensorID,
+	fmt.Printf("[TRACK #%-4d] Pos: (%.6f, %.6f) | Speed: %5.1f km/h | Heading: %5.1f° | Source: %-15s\n",
+		fusedTrack.UpdateCount,
+		fusedTrack.Latitude,
+		fusedTrack.Longitude,
+		fusedTrack.EstimatedSpeed,
+		fusedTrack.HeadingDegrees,
 		telemetry.SensorType,
-		telemetry.Latitude,
-		telemetry.Longitude,
-		telemetry.AltitudeMeters,
-		latencyMs,
 	)
 }
 
