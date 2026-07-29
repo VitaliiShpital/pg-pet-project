@@ -1,0 +1,41 @@
+services:
+  # postGIS DB
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: air_defense_postgres
+    environment:
+      POSTGRES_DB: air_defense
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # auto-executes our SQL migration script on initial container startup
+      - ./docker/migrations/000001_init_air_defense_schema.up.sql:/docker-entrypoint-initdb.d/01_init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d air_defense"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # MQTT broker for Edge sensors
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: air_defense_mosquitto
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./docker/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+
+  # NATS messaging system for internal communication (JetStream enabled)
+  nats:
+    image: nats:2.9.19
+    container_name: air_defense_nats
+    command: ["-js", "-m", "8222"] # enable JetStream (-js) and monitoring port (-m 8222)
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+
+volumes:
+  postgres_data:
