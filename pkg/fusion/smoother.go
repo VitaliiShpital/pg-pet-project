@@ -1,20 +1,12 @@
-package main
+package fusion
 
 import (
 	"math"
 	"sync"
 	"time"
-)
 
-type FusedTrack struct {
-	TrackID        string    `json:"track_id"`
-	Latitude       float64   `json:"latitude"`
-	Longitude      float64   `json:"longitude"`
-	EstimatedSpeed float64   `json:"estimated_speed_kmh"`
-	HeadingDegrees float64   `json:"heading_degrees"`
-	LastUpdated    time.Time `json:"last_updated"`
-	UpdateCount    uint64    `json:"update_count"`
-}
+	"pg-pet-project/pkg/telemetry"
+)
 
 type SimpleTrackSmoother struct {
 	mu          sync.Mutex
@@ -31,7 +23,7 @@ func NewTrackSmoother() *SimpleTrackSmoother {
 	return &SimpleTrackSmoother{}
 }
 
-func (s *SimpleTrackSmoother) ProcessMeasurement(reading SensorTelemetry) FusedTrack {
+func (s *SimpleTrackSmoother) ProcessMeasurement(reading telemetry.RawSensorEvent) telemetry.FusedTrack {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -45,13 +37,13 @@ func (s *SimpleTrackSmoother) ProcessMeasurement(reading SensorTelemetry) FusedT
 		s.isInit = true
 		s.updateCount = 1
 
-		return FusedTrack{
+		return telemetry.FusedTrack{
 			TrackID:        "TARGET-ALPHA-01",
 			Latitude:       s.lat,
 			Longitude:      s.lng,
 			EstimatedSpeed: s.speed,
 			HeadingDegrees: s.heading,
-			LastUpdated:    reading.DetectedAt,
+			LastUpdatedAt:  reading.DetectedAt,
 			UpdateCount:    1,
 		}
 	}
@@ -72,13 +64,13 @@ func (s *SimpleTrackSmoother) ProcessMeasurement(reading SensorTelemetry) FusedT
 	s.lastTime = reading.DetectedAt
 	s.updateCount++
 
-	return FusedTrack{
+	return telemetry.FusedTrack{
 		TrackID:        "TARGET-ALPHA-01",
 		Latitude:       s.lat,
 		Longitude:      s.lng,
 		EstimatedSpeed: math.Round(s.speed*10) / 10,
 		HeadingDegrees: math.Round(s.heading*10) / 10,
-		LastUpdated:    reading.DetectedAt,
+		LastUpdatedAt:  reading.DetectedAt,
 		UpdateCount:    s.updateCount,
 	}
 }
