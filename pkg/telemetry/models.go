@@ -1,35 +1,38 @@
 package telemetry
 
-import "time"
+import (
+	"os"
+	"time"
+)
 
-// Default Broker URLs
-const (
-	DefaultNATSURL = "nats://localhost:4222"
-	DefaultMQTTURL = "tcp://localhost:1883"
+// Helper function to read environment variables with fallback
+func getEnv(key, defaultValue string) string {
+	if value, exists := os.LookupEnv(key); exists {
+		return value
+	}
+	return defaultValue
+}
+
+// Broker & DB Connections with Environment Overrides
+var (
+	DefaultNATSURL     = getEnv("NATS_URL", "nats://localhost:4222")
+	DefaultMQTTURL     = getEnv("MQTT_URL", "tcp://localhost:1883")
+	DefaultPostgresDSN = getEnv("POSTGRES_DSN", "postgres://postgres:postgres_password@localhost:5432/air_defense?sslmode=disable")
 )
 
 // MQTT Configuration
 const (
-	MQTTTelemetryTopic = "telemetry/#"
-	// DefaultTelemetryQoS defines the delivery guarantee level for sensor streams:
-	// QoS 0: At most once delivery (lowest overhead for continuous tracking frames)
-	// QoS 1: At least once delivery (use if missing a single frame causes tracking failure)
-	DefaultTelemetryQoS byte = 0
+	MQTTTelemetryTopic  = "telemetry/#"
+	DefaultTelemetryQoS = 0
 )
 
 // NATS Subjects
 const (
-	// NATSRawTelemetryWildcard is used by consumers to listen to all raw sensor events
 	NATSRawTelemetryWildcard = "telemetry.raw.>"
+	NATSRawTelemetryPrefix   = "telemetry.raw."
 
-	// NATSRawTelemetryPrefix is used by ingestion to build specific subjects (e.g., telemetry.raw.RADAR)
-	NATSRawTelemetryPrefix = "telemetry.raw."
-
-	// NATSFusedTracksWildcard is used by downstream consumers (e.g. PostGIS, WebSockets)
 	NATSFusedTracksWildcard = "tracks.fused.>"
-
-	// NATSFusedTracksPrefix is used by fusion to publish fused updates (e.g., tracks.fused.TARGET-ALPHA-01)
-	NATSFusedTracksPrefix = "tracks.fused."
+	NATSFusedTracksPrefix   = "tracks.fused."
 )
 
 // RawSensorEvent represents incoming raw telemetry from edge sensors

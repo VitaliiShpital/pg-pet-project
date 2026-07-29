@@ -1,5 +1,8 @@
 services:
-  # postGIS DB
+  # =========================================================================
+  # INFRASTRUCTURE SERVICES
+  # =========================================================================
+
   postgres:
     image: postgis/postgis:16-3.4
     container_name: air_defense_postgres
@@ -11,7 +14,6 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      # auto-executes our SQL migration script on initial container startup
       - ./docker/migrations/000001_init_air_defense_schema.up.sql:/docker-entrypoint-initdb.d/01_init.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d air_defense"]
@@ -19,7 +21,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # MQTT broker for Edge sensors
   mosquitto:
     image: eclipse-mosquitto:2.0
     container_name: air_defense_mosquitto
@@ -28,14 +29,62 @@ services:
     volumes:
       - ./docker/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
 
-  # NATS messaging system for internal communication (JetStream enabled)
   nats:
     image: nats:2.9.19
     container_name: air_defense_nats
-    command: ["-js", "-m", "8222"] # enable JetStream (-js) and monitoring port (-m 8222)
+    command: ["-js", "-m", "8222"]
     ports:
       - "4222:4222"
       - "8222:8222"
+
+  # =========================================================================
+  # GO APPLICATION SERVICES
+  # =========================================================================
+
+  ingestion:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        SERVICE_NAME: ingestion
+    container_name: air_defense_ingestion
+    environment:
+      - NATS_URL=nats://nats:4222
+      - MQTT_URL=tcp://mosquitto:1883
+    depends_on:
+      - mosquitto
+      - nats
+    restart: on-failure
+
+  fusion:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        SERVICE_NAME: fusion
+    container_name: air_defense_fusion
+    environment:
+      - NATS_URL=nats://nats:4222
+    depends_on:
+      - nats
+    restart: on-failure
+
+  storage:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        SERVICE_NAME: storage
+    container_name: air_defense_storage
+    environment:
+      - NATS_URL=nats://nats:4222
+      - POSTGRES_DSN=postgres://postgres:postgres_password@postgres:5432/air_defense?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_started
+    restart: on-failure
 
 volumes:
   postgres_data:

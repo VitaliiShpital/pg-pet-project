@@ -1,0 +1,15 @@
+# Ignore python simulator (has its own execution context)
+simulator/
+
+# Ignore Docker / DB files
+docker/
+docker-compose.yaml
+
+# Ignore local build artifacts & git history
+.git/
+.gitignore
+*.md
+
+# Ignore IDE settings
+.idea/
+.vscode/
